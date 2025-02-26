@@ -19,7 +19,14 @@ jobs:
     steps:
       - name: Set branch name
         id: vars
-        run: echo "BRANCH_NAME=${{ github.repository_owner == 'Guovin' && 'gd' || 'master' }}" >> $GITHUB_ENV
+        run: |
+          # 动态设置分支名称
+          if [[ "${{ github.repository_owner }}" == "Guovin" ]]; then
+            echo "BRANCH_NAME=gd" >> $GITHUB_ENV
+          else
+            echo "BRANCH_NAME=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)" >> $GITHUB_ENV
+          fi
+          echo "Selected branch: ${{ env.BRANCH_NAME }}"
 
       - uses: actions/checkout@v3
         with:
