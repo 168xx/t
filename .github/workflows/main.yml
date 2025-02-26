@@ -3,38 +3,35 @@ name: 'Update schedule'
 on:
   schedule:
     - cron: '0 22,10 * * *'  # 每天 UTC 时间 22:00 和 10:00 触发
-  workflow_dispatch:          # 支持手动触发
+  workflow_dispatch:
     branches:
-      - master                # 允许手动触发的分支
-      - dev                   # 根据你的分支名称修改
-      - gd                    # 根据你的分支名称修改
+      - master
+      - dev
+      - gd
 
 jobs:
   push:
-    runs-on: ubuntu-latest    # 使用最新的 Ubuntu 环境
-    timeout-minutes: 120      # 设置超时时间为 120 分钟
-
+    runs-on: ${{ matrix.operating-system }}
+    timeout-minutes: 120
+    strategy:
+      matrix:
+        operating-system: [ 'ubuntu-20.04' ]
     steps:
-      # 步骤 1: 设置分支名称
       - name: Set branch name
         id: vars
-        run: echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV  # 使用当前触发分支
+        run: echo "BRANCH_NAME=${{ github.repository_owner == 'Guovin' && 'gd' || 'master' }}" >> $GITHUB_ENV
 
-      # 步骤 2: 检出代码
       - uses: actions/checkout@v3
         with:
-          ref: ${{ env.BRANCH_NAME }}  # 使用上一步设置的分支名称
-          token: ${{ secrets.GITHUB_TOKEN }}  # 使用 GitHub Token 确保推送权限
+          ref: ${{ env.BRANCH_NAME }}
 
-      # 步骤 3: 设置 Python 环境
-      - name: Set up Python 3.11
+      - name: Run with setup-python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'  # 使用 Python 3.11（可根据需要修改）
+          python-version: '3.12'  # 使用 Python 3.12（或 3.11）
           update-environment: true
-          cache: 'pipenv'          # 启用 pipenv 缓存
+          cache: 'pipenv'
 
-      # 步骤 4: 检查 open_driver 配置
       - name: Check open_driver config
         id: check_driver
         run: |
@@ -46,57 +43,32 @@ jobs:
             open_driver = False
           print(open_driver)')" >> $GITHUB_ENV
 
-      # 步骤 5: 安装 Chrome（如果需要）
       - name: Set up Chrome
-        if: env.OPEN_DRIVER == 'True'  # 仅在 open_driver 为 True 时运行
+        if: env.OPEN_DRIVER == 'True'
         uses: browser-actions/setup-chrome@latest
         with:
           chrome-version: stable
 
-      # 步骤 6: 安装 ChromeDriver（如果需要）
-      - name: Download ChromeDriver
-        if: env.OPEN_DRIVER == 'True'  # 仅在 open_driver 为 True 时运行
+      - name: Download chrome driver
+        if: env.OPEN_DRIVER == 'True'
         uses: nanasess/setup-chromedriver@master
 
-      # 步骤 7: 安装 FFmpeg（如果需要）
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      # 步骤 8: 安装 pipenv
       - name: Install pipenv
         run: pip3 install --user pipenv
 
-      # 步骤 9: 安装项目依赖
       - name: Install dependencies
-        run: pipenv --python 3.11 && pipenv install --deploy
+        run: pipenv --python 3.12 && pipenv install --dev --deploy
 
-      # 步骤 10: 安装 Selenium（如果需要）
-      - name: Install Selenium
-        if: env.OPEN_DRIVER == 'True'  # 仅在 open_driver 为 True 时运行
+      - name: Install selenium
+        if: env.OPEN_DRIVER == 'True'
         run: pipenv install selenium
 
-      # 步骤 11: 运行更新脚本（支持自定义路径）
       - name: Update
-        run: |
-          set +e  # 禁用错误退出
-          echo "Running update script..."
-          # 替换为你的实际脚本路径
-          SCRIPT_PATH="main.py"  # 修改为你的脚本路径
-          if [[ -f "$SCRIPT_PATH" ]]; then
-            echo "Found script at $SCRIPT_PATH"
-            pipenv run python "$SCRIPT_PATH"
-            if [ $? -ne 0 ]; then
-              echo "Update script failed. Checking for syntax errors..."
-              pipenv run python -m py_compile "$SCRIPT_PATH"
-              exit 1
-            fi
-          else
-            echo "Error: Could not find script at $SCRIPT_PATH"
-            exit 1
-          fi
-          set -e  # 重新启用错误退出
+        run: pipenv run dev
 
-      # 步骤 12: 提交和推送更改（如果有）
       - name: Commit and push if changed
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
@@ -138,7 +110,5 @@ jobs:
           fi
           if ! git diff --staged --quiet; then
             git commit -m "Github Action Auto Updated"
-            git push origin ${{ env.BRANCH_NAME }}  # 推送到当前分支
-          else
-            echo "No changes to commit."
+            git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref }}
           fi
