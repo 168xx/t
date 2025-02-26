@@ -18,12 +18,13 @@ jobs:
       # 步骤 1: 设置分支名称
       - name: Set branch name
         id: vars
-        run: echo "BRANCH_NAME=${{ github.repository_owner == 'YourGitHubUsername' && 'your-branch-name' || 'master' }}" >> $GITHUB_ENV
+        run: echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV  # 使用当前触发分支
 
       # 步骤 2: 检出代码
       - uses: actions/checkout@v3
         with:
           ref: ${{ env.BRANCH_NAME }}  # 使用上一步设置的分支名称
+          token: ${{ secrets.GITHUB_TOKEN }}  # 使用 GitHub Token 确保推送权限
 
       # 步骤 3: 设置 Python 环境
       - name: Set up Python 3.11
@@ -120,5 +121,7 @@ jobs:
           fi
           if ! git diff --staged --quiet; then
             git commit -m "Github Action Auto Updated"
-            git push --force
+            git push origin ${{ env.BRANCH_NAME }}  # 推送到当前分支
+          else
+            echo "No changes to commit."
           fi
