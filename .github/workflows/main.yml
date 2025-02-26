@@ -75,15 +75,28 @@ jobs:
         if: env.OPEN_DRIVER == 'True'  # 仅在 open_driver 为 True 时运行
         run: pipenv install selenium
 
-      # 步骤 11: 运行更新脚本（增加错误捕获）
+      # 步骤 11: 运行更新脚本（增加错误捕获和路径检测）
       - name: Update
         run: |
           set +e  # 禁用错误退出
+          echo "Running update script..."
           pipenv run dev
           if [ $? -ne 0 ]; then
             echo "Update script failed. Checking for syntax errors..."
-            # 检查 Python 脚本语法错误
-            pipenv run python -m py_compile path/to/your/dev.py  # 替换为你的脚本路径
+            # 自动检测 dev.py 路径
+            if [[ -f "scripts/dev.py" ]]; then
+              echo "Found script at scripts/dev.py"
+              pipenv run python -m py_compile scripts/dev.py
+            elif [[ -f "src/dev.py" ]]; then
+              echo "Found script at src/dev.py"
+              pipenv run python -m py_compile src/dev.py
+            elif [[ -f "dev.py" ]]; then
+              echo "Found script at dev.py"
+              pipenv run python -m py_compile dev.py
+            else
+              echo "Error: Could not find dev.py in scripts/, src/, or root directory."
+              exit 1
+            fi
             exit 1
           fi
           set -e  # 重新启用错误退出
