@@ -75,9 +75,18 @@ jobs:
         if: env.OPEN_DRIVER == 'True'  # 仅在 open_driver 为 True 时运行
         run: pipenv install selenium
 
-      # 步骤 11: 运行更新脚本
+      # 步骤 11: 运行更新脚本（增加错误捕获）
       - name: Update
-        run: pipenv run dev
+        run: |
+          set +e  # 禁用错误退出
+          pipenv run dev
+          if [ $? -ne 0 ]; then
+            echo "Update script failed. Checking for syntax errors..."
+            # 检查 Python 脚本语法错误
+            pipenv run python -m py_compile path/to/your/dev.py  # 替换为你的脚本路径
+            exit 1
+          fi
+          set -e  # 重新启用错误退出
 
       # 步骤 12: 提交和推送更改（如果有）
       - name: Commit and push if changed
