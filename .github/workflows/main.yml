@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           ref: ${{ env.BRANCH_NAME }}
+          fetch-depth: 0  # 获取完整的 Git 历史记录
 
       - name: Run with setup-python 3.12
         uses: actions/setup-python@v4
@@ -113,7 +114,8 @@ jobs:
           fi
 
           # 检查是否有更改需要提交
-          if ! git diff --staged --quiet; then
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "Changes detected. Committing and pushing..."
             git commit -m "Github Action Auto Updated"
             git pull --rebase origin ${{ env.BRANCH_NAME }}  # 拉取远程最新更改
             git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ env.BRANCH_NAME }}
